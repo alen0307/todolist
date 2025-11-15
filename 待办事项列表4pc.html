@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办事项列表</title>
+    <!-- 替换原 <head> 里的 <style> 部分 -->
+<style>
+* {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0f7fa 0%, #bbdefb 100%);
+            padding: 20px;
+            min-height: 100vh;
+            color: #2c3e50;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .header {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .header h1 {
+            color: #1a237e;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 2.2rem;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(to right, #2196F3, #21CBF3);
+            color: white;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    button.toggle-on{background:linear-gradient(135deg,#4CAF50,#8BC34A)}
+    button.toggle-off{background:linear-gradient(135deg,#FF9800,#FFC107)}
+
+    /* 3. 事项卡片 */
+    .todo-item{
+        background:#fff;
+        border-radius:8px;
+        padding:12px;
+        margin-bottom:10px;
+        box-shadow:0 1px 3px rgba(0,0,0,.08);
+    }
+    .todo-header{
+        display:flex;
+        justify-content:space-between;
+        font-size:13px;
+        color:#666;
+        margin-bottom:6px;
+    }
+    .todo-title{
+        font-size:17px;
+        font-weight:600;
+        color:#1a237e;
+    }
+    .todo-details{
+        margin-top:6px;
+        font-size:14px;
+        color:#555;
+        white-space:pre-wrap;
+        word-break:break-word;
+    }
+    .plan-date.upcoming{color:#2e7d32}
+    .plan-date.overdue{color:#c62828}
+
+    /* 4. 模态框适配 */
+    .modal{
+        display:none;
+        position:fixed;
+        top:0;left:0;
+        width:100%;height:100%;
+        background:rgba(0,0,0,.45);
+        z-index:999;
+    }
+    .modal-content{
+        position:relative;
+        background:#fff;
+        margin:10vh auto 0;
+        width:92%;
+        max-width:400px;
+        max-height:80vh;
+        border-radius:12px;
+        overflow:hidden;
+        display:flex;
+        flex-direction:column;
+    }
+    .modal-content h3{
+        flex-shrink:0;
+        padding:14px 16px;
+        font-size:18px;
+        background:#2196F3;
+        color:#fff;
+    }
+    #todoForm{
+        flex:1 1 auto;
+        overflow-y:auto;
+        padding:12px 16px 20px;
+    }
+    .form-group{
+        margin-bottom:12px;
+    }
+    .form-group label{
+        display:block;
+        margin-bottom:4px;
+        font-size:14px;
+        font-weight:600;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea{
+        width:100%;
+        padding:10px 12px;
+        border:1px solid #cfd8dc;
+        border-radius:6px;
+        font-size:15px;
+    }
+    .form-group textarea{min-height:70px;resize:vertical}
+    .close{
+        position:absolute;
+        right:12px;top:10px;
+        font-size:26px;
+        color:#fff;
+        line-height:1;
+        padding:4px 8px;
+    }
+	/* 搜索面板复选框修复 */
+#searchDetails {
+  -webkit-appearance: checkbox;   /* 强制显示原生勾选框 */
+  appearance: checkbox;
+  width: auto;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+    .file-input{display:none}
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>待办事项列表</h1>
+            <div class="button-group">
+                <button onclick="showNewModal()">新建</button>
+                <button id="toggleDetails" class="toggle-off" onclick="toggleDetails()">显示细节</button>
+				<button onclick="showSearchModal()">🔍 搜索</button>
+                <button onclick="exportList()">输出列表</button>
+                <button onclick="importList()">导入列表</button>
+            </div>
+        </div>
+        
+        <div class="todo-list" id="todoList"></div>
+    </div>
+    <!-- 2. 搜索面板（与新建面板同级，最外层） -->
+	<div id="searchModal" class="modal">
+	  <div class="modal-content">
+		<span class="close" onclick="closeSearchModal()">&times;</span>
+		<h3>搜索事项</h3>
+
+		<div >
+		  <input type="text" id="searchKey" placeholder="输入关键词">
+
+		  <label><input type="checkbox" id="searchDetails"> 同时搜索细节</label>
+		</div>
+		<button onclick="runSearch()">开始搜索</button>
+	  </div>
+	</div>
+    <!-- 新建/编辑模态框 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 id="modalTitle">新建事项</h3>
+            <form id="todoForm">
+                <div class="form-group">
+                    <label for="title">事项名称：</label>
+                    <input type="text" id="title" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="details">细节：</label>
+                    <textarea id="details" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="createTime">创建时间：</label>
+                    <input type="datetime-local" id="createTime" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="planTime">计划完成时间：</label>
+                    <input type="datetime-local" id="planTime">
+                </div>
+                
+                <div class="form-group">
+                    <label for="isCompleted">是否完成：</label>
+                    <select id="isCompleted">
+                        <option value="false">未完成</option>
+                        <option value="true">完成</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reason">未完成原因：</label>
+                    <input type="text" id="reason">
+                </div>
+                
+                <div class="form-group">
+                    <label for="notes">备注：</label>
+                    <input type="text" id="notes">
+                </div>
+                
+                <div class="form-group">
+                    <label for="status">状态：</label>
+                    <select id="status">
+                        <option value="normal">正常</option>
+                        <option value="closed">关闭</option>
+                    </select>
+                </div>
+                
+                <!-- 放在保存按钮同一排 -->
+<div style="display:flex;gap:8px;margin-top:12px">
+  <button type="submit" style="flex:1">保存</button>
+  <button type="button" onclick="delCurrentTodo()" style="flex:1;background:linear-gradient(135deg,#f44336,#d32f2f)">删除</button>
+</div>
+            </form>
+        </div>
+    </div>
+    
+    <input type="file" id="fileInput" class="file-input" accept=".json" onchange="handleFileImport(event)">
+    
+    <script>
+        let todos = [];
+        let showDetails = false;
+        let editingId = null;
+        let emptySearchMode = false;  
+        // 初始化
+        window.onload = function() {
+            loadTodos();
+            renderTodos();
+            document.getElementById('todoForm').addEventListener('submit', saveTodo);
+        };
+        
+        // 从localStorage加载数据
+        function loadTodos() {
+            const saved = localStorage.getItem('todos');
+            if (saved) {
+                todos = JSON.parse(saved);
+            }
+        }
+        
+        // 保存到localStorage
+        function saveTodos() {
+            localStorage.setItem('todos', JSON.stringify(todos));
+        }
+        
+        // 格式化日期为 MM月DD日
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return `${date.getMonth() + 1}月${date.getDate()}日`;
+        }
+        
+        // 检查日期是否过期
+        function isOverdue(planTime) {
+            if (!planTime) return false;
+            const now = new Date();
+            const plan = new Date(planTime);
+            // 将时间设置为当天的23:59:59，这样当天不算过期
+            plan.setHours(23, 59, 59, 999);
+            return now > plan;
+        }
+        
+        // 渲染待办事项列表
+        
+        
+        // 显示新建模态框
+        // 新建事项时，把“创建时间”默认设为当前本地时间
+        function showNewModal() {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = '新建事项';
+            document.getElementById('todoForm').reset();
+
+            /* 关键修复：本地时间而非 UTC */
+            const local = new Date();
+            const yyyy = local.getFullYear();
+            const mm = String(local.getMonth() + 1).padStart(2, '0');
+            const dd = String(local.getDate()).padStart(2, '0');
+            const hh = String(local.getHours()).padStart(2, '0');
+            const min = String(local.getMinutes()).padStart(2, '0');
+            document.getElementById('createTime').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+
+            document.getElementById('modal').style.display = 'block';
+        }
+        
+        // 编辑事项
+        function editTodo(id) {
+            const todo = todos.find(t => t.id === id);
+            if (!todo) return;
+            
+            editingId = id;
+            document.getElementById('modalTitle').textContent = '编辑事项';
+            document.getElementById('title').value = todo.title;
+            document.getElementById('details').value = todo.details || '';
+            document.getElementById('createTime').value = todo.createTime;
+            document.getElementById('planTime').value = todo.planTime || '';
+            document.getElementById('isCompleted').value = todo.isCompleted.toString();
+            document.getElementById('reason').value = todo.reason || '';
+            document.getElementById('notes').value = todo.notes || '';
+            document.getElementById('status').value = todo.status;
+            document.getElementById('modal').style.display = 'block';
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+        
+        // 保存事项
+        function saveTodo(e) {
+            e.preventDefault();
+            
+            const todo = {
+                id: editingId || Date.now(),
+                title: document.getElementById('title').value,
+                details: document.getElementById('details').value,
+                createTime: document.getElementById('createTime').value,
+                planTime: document.getElementById('planTime').value,
+                isCompleted: document.getElementById('isCompleted').value === 'true',
+                reason: document.getElementById('reason').value,
+                notes: document.getElementById('notes').value,
+                status: document.getElementById('status').value
+            };
+            
+            if (editingId) {
+                const index = todos.findIndex(t => t.id === editingId);
+                if (index !== -1) {
+                    todos[index] = todo;
+                }
+            } else {
+                todos.push(todo);
+            }
+            
+            saveTodos();
+            emptySearchMode = false; 
+            renderTodos();
+            closeModal();
+        }
+        
+        // 切换显示细节
+        function toggleDetails() {
+            showDetails = !showDetails;
+            emptySearchMode = false; // 恢复日常过滤
+            const btn = document.getElementById('toggleDetails');
+            btn.textContent = showDetails ? '隐藏细节' : '显示细节';
+            btn.className = showDetails ? 'toggle-on' : 'toggle-off';
+            renderTodos();
+        }
+        
+        // 导出列表
+        function exportList() {
+            const dataStr = JSON.stringify(todos, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            const date = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            link.href = url;
+            link.download = `待办事项列表${date}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // 导入列表
+        function importList() {
+            document.getElementById('fileInput').click();
+        }
+        
+        // 处理文件导入
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedTodos = JSON.parse(e.target.result);
+                    if (Array.isArray(importedTodos)) {
+                        // 合并数据，避免重复
+                        importedTodos.forEach(newTodo => {
+                            const existingIndex = todos.findIndex(t => t.id === newTodo.id);
+                            if (existingIndex === -1) {
+                                todos.push(newTodo);
+                            }
+                        });
+                        saveTodos();
+                        renderTodos();
+                        alert('导入成功！');
+                    } else {
+                        alert('文件格式错误！');
+                    }
+                } catch (error) {
+                    alert('文件解析失败！');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+        
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+		/* ---------- 搜索相关 ---------- */
+	let searchKey   = '';          // 当前关键词
+	let searchInDet = false;       // 是否搜索细节
+
+	function showSearchModal(){
+	  document.getElementById('searchModal').style.display = 'block';
+	}
+	function closeSearchModal(){
+	  document.getElementById('searchModal').style.display = 'none';
+	}
+
+	function runSearch() {
+  searchKey   = document.getElementById('searchKey').value;
+  searchInDet = document.getElementById('searchDetails').checked;
+  emptySearchMode = !searchKey.trim(); // 关键词为空 -> 进入“全显”模式
+  closeSearchModal();
+  renderTodos();
+}
+function doFilter(key, searchDetails) {
+  const k = key.trim().toLowerCase();
+  if (!k) return todos;                       // 空关键词返回全部
+  return todos.filter(t => {
+    const inTitle  = t.title.toLowerCase().includes(k);
+    const inDetail = searchDetails && t.details && t.details.toLowerCase().includes(k);
+    return inTitle || inDetail;
+  });
+}
+	/* 重写/替换原来的 renderTodos() 头部两句即可 */
+	function renderTodos(){
+const list = document.getElementById('todoList');
+  list.innerHTML = '';
+
+  const base = searchKey.trim() ? doFilter(searchKey, searchInDet) : todos;
+
+  // 关键区别：只有“空关键词搜索”时才不过滤状态，其余日常视图依旧隐藏 closed
+  const showTodos = emptySearchMode
+    ? base                           // 空关键词搜索 -> 所有状态都留
+    : base.filter(t => t.status === 'normal'); // 日常/关键词搜索 -> 隐藏 closed
+
+	  showTodos.forEach(t=>{
+		 // … 以下与原渲染逻辑完全一致 …
+		 const item = document.createElement('div');
+		 item.className = 'todo-item';
+		 item.onclick = () => editTodo(t.id);
+
+		 let html = `
+		   <div class="todo-header">
+			 <div class="todo-date create-date">${formatDate(t.createTime)}</div>
+			 <div class="todo-date plan-date ${t.planTime ? (isOverdue(t.planTime)?'overdue':'upcoming'):''}">${formatDate(t.planTime)}</div>
+		   </div>
+		   <div class="todo-title">${t.title}</div>`;
+
+		 if(showDetails && t.details){
+		   const det = t.details.length>100 ? t.details.substring(0,100)+'…' : t.details;
+		   html += `<div class="todo-details">${det}</div>`;
+		 }
+		 item.innerHTML = html;
+		 list.appendChild(item);
+	  });
+
+	  if(showTodos.length===0){
+		 list.innerHTML = '<p style="text-align:center;color:#999">无匹配事项</p>';
+	  }
+	}
+	/* 删除当前正在编辑的事项 */
+function delCurrentTodo() {
+  if (!editingId) return;          // 新建状态无 ID
+  if (!confirm('确定要删除该事项吗？')) return;
+
+  todos = todos.filter(t => t.id !== editingId);
+  saveTodos();
+  emptySearchMode = false; 
+  renderTodos();
+  closeModal();                    // 关闭编辑面板
+}
+    </script>
+</body>
+</html>
